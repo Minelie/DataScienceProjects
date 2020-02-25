@@ -15,5 +15,5 @@ http://htmlpreview.github.com/?https://github.com/Minelie/DataScienceProjects/bl
 Practical Machine Learning Course Project:
 http://htmlpreview.github.com/?https://github.com/Minelie/DataScienceProjects/blob/master/MachineLearning_Project.html
 
-Developing Data Products
+Developing Data Products:
 https://emineo.shinyapps.io/ChildHeight/
