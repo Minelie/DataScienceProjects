@@ -1,0 +1,90 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+##Statistical Inference Course Project 2:  Basic Inferential Data Analysis
+Author: E. Mineo
+Date: October 7, 2018
+
+In this second project of the course, the R built-in ToothGrowth dataset is used to perform a basic statistical inference exercise.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning=FALSE)
+```
+
+1. Exploratory Analysis
+```{r}
+library(datasets)
+library(ggplot2)
+d <- ToothGrowth
+```
+
+```{r}
+str(d)
+```
+
+```{r}
+summary(d)
+```
+
+The dataset contains 60 observations and 3 variables: len, supp and dose. Supp is a factor with two levels "OJ", orange juice and "VC", vitamin C. There are 3 doses: 0.5, 1 and 2mg/day. Len is the response variable. The dataset is plotted in figure 1. The tooth length seems to be different depending on dose and supplement type. Let's verify this using a T-test.
+
+
+```{r, fig.width=3,fig.height=3}
+qplot(dose,len,data=d,ylab = "Length",xlab="Dose VC",color=supp)
+```
+
+Fig.1: Plot of the ToothGrowth dataset
+
+2.Comparison of supplement and dose
+
+a) Comparison of supplement
+```{r}
+g1 <- d[d$supp=="VC",] #Group of animal that received vitamin C
+g2 <- d[d$supp=="OJ",] #Group of animal that received orange juice
+```
+
+T-Confidence Interval Method
+```{r}
+n1 <- length(g1$len)
+n2 <- length(g2$len)
+sp <- sqrt(((n1-1) * sd(g1$len)^2 + (n2-1) * sd(g2$len)^2) / (n1 + n2 - 2))
+md <- mean(g2$len) - mean(g1$len)#mean difference
+semd <- sp * sqrt(1 / n1 + 1/n2)#standard error of the mean difference
+md + c(-1, 1) * qt(.975, n1 + n2 - 2) * semd #T-CI
+```
+
+T-test Method
+```{r}
+t.test(g2$len, g1$len, paired = FALSE)
+```
+Conclusion: The confidence interval and the p-value show that H0 cannot be rejected with alpha=5%. This means that there is no evidence that the supplement type has an effect on the tooth length.
+
+
+b) Comparison of doses
+
+Test 1: 0.5 vs. 1 mg/day
+```{r}
+g3 <- d[d$dose=="0.5",]$len #Group of animals that received 0.5 mg/day
+g4 <- d[d$dose=="1",]$len #Group of animals that received 1 mg/day
+t.test(g4, g3, paired = FALSE)
+```
+Conclusion test 1: Hypothesis H0 rejected, there is a significant difference between the effect of the two doses. On average, the length of odontoblasts with a dose of 1 mg/day is greater than with a dose of 0.5 mg/day.
+
+
+Test 2: 0.5 vs 2 mg/day
+```{r}
+g5 <- d[d$dose=="2",]$len #Group of animals that received 2 mg/day
+t.test(g5, g3, paired = FALSE)
+```
+Conclusion test 2: Hypothesis H0 rejected, the difference between the effect of the two doses is strongly signififcant (p-value = 4.398e-14). On average, the length of odontoblasts with a dose of 2 mg/day is greater than with a dose of 0.5 mg/day.
+
+
+Test 3: 1 vs 2 mg/day
+```{r}
+t.test(g5, g4, paired = FALSE)
+```
+Conclusion test 3: Hypothesis H0 rejected, there is a significant difference between the effect of the two doses. On average, the length of odontoblasts with a dose of 2 mg/day is greater than with a dose of 1mg/day.
+
+CONCLUSION: Supplement type has no effect on tooth length but dose has a significant effect.

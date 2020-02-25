@@ -1,0 +1,160 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+##Data analysis Motor Trend
+Author: E. Mineo
+Date: 7 January 2019
+
+#Summary
+This data analysis used the mtcars data to answer two questions for the Motor Trend magazine:
+1/Is an automatic or manual transmission better for MPG?
+2/What is the MPG difference between automatic and manual transmissions?
+
+Several linear models have been assessed and based on anova test for nested models, the relevant variables to include in the model are am (transmission) and wt (weight) as well as their interaction terms. The model shows that up to approx. 2600 lb, manual cars have in average higher mpg than automatic cars and this trend reverses after approx. 2600 lb. In answer to 1/, manual cars are better for MPG when the car weight is < approx. 2600lb and automatic cars are better for MPG when the car weight is above approx. 2600lb. In answer to question 2/, the models shows that among cars with automatic transmission, every additional 1000lb increase in car weight result in a decrease of 3.79 mpg on average and among cars with manual transmission, every additional 1000lb increase in car weight result in a decrease of 9.09 mpg on average.
+
+#1/Exploratory Analysis and data formatting
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning=FALSE)
+```
+
+```{r,echo=FALSE}
+library(car)
+library(ggplot2)
+```
+
+```{r, results='hide'}
+data(mtcars)
+str(mtcars)
+```
+Some variables that are factors are consdered as continuous by R. Let's change that.
+```{r}
+data <- mtcars
+data$am <- as.factor(data$am)
+data$cyl <- as.factor(data$cyl)
+data$gear <- as.factor(data$gear)
+data$carb <- as.factor(data$carb)
+data$vs <- as.factor(data$vs)
+```
+
+Let's check NA value
+```{r}
+sum(is.na(data))
+```
+Let's plot the data in Fig.1 to see what is happening here. Fig.1 suggests that there is a difference between mpg for automatic and manual cars and that manual cars have a smaller mpg. Let's verify this with a model.
+
+#2/Model selection
+The outcome is not binary nor count or rate, so we can eliminate binomial and poisson regressions and try to fit a multiple variables linear model. Let's start by fitting the simplest model fit1. The coefficients are included in the annexes, Fig.3.
+```{r}
+fit1 <- lm(mpg~am,data=data)
+```
+
+With a p-value of 0.000285, the model overall seems to significantly explain the outcomes. The Residual vs. Fitted plot of fit1 is included in Fig.2. Fig.2 shows that there is a systematic pattern here, the model is not strong enough. Let's include the addtional variables one by one and compare them with an ANOVA nested models.
+
+```{r}
+fit1 <- lm(mpg~am,data=data)
+fit2 <- lm(mpg~am+wt,data=data)
+fit3 <- lm(mpg~am+wt+hp, data=data)
+fit4 <- lm(mpg~am+wt+hp+cyl, data=data)
+fit5 <- lm(mpg~am+wt+hp+cyl+disp,data=data)
+fit6 <- lm(mpg~am+wt+hp+cyl+disp+drat,data=data)
+fit7 <- lm(mpg~am+wt+hp+cyl+disp+drat+qsec,data=data)
+fit8 <- lm(mpg~am+wt+hp+cyl+disp+drat+qsec+vs,data=data)
+fit9 <- lm(mpg~am+wt+hp+cyl+disp+drat+qsec+vs+gear,data=data)
+fit10 <- lm(mpg~am+wt+hp+cyl+disp+drat+qsec+vs+gear+carb,data=data)
+```
+The analysis of variance table is included in annexes Fig.4.
+Conclusion: The addition of variable wt to the initial model significantly improves the model and the other variables are less relevant to the model.
+
+```{r}
+summary(fit2)$coef
+```
+Fit2 tells us that: 
+-The average mpg for automatic transmissions is 37.32 (Intercept);
+-At constant car weight, car with manual transmissions have in average 0.02 lower mpg compared with cars with automatic transmission (am1). This difference however is not sgnificant;
+-Cars with automatic transmissions have on average their mpg significantly increased (by 5.35) for every 1000lb increase (wt). 
+
+Fig.5 shows the regression lines of fit2 on a plot. On Fig.4, the two lines are very close to each other because of the small 0.02 difference in the intercept of the two levels.
+
+The model explains a lot of the variation but are the interaction terms relevant here?
+```{r}
+fit21 <- lm(mpg~am*wt,data=data)
+summary(fit21)$coef
+```
+This new model tells us that:
+-among cars with automatic transmission, every additional 1000lb increase in car weight result in a decrease of 3.79 mpg on average;
+-among cars with manual transmission, every additional 1000lb increase in car weight result in a decrease of 9.09 (3.79+5.30) mpg on average.
+
+Let's compare this with the model without interaction terms to see whether they are really relevant.
+```{r}
+anova(fit2,fit21)[1:6]
+```
+Conclusion: the interaction terms provide significant additional explanation to the variation of the outcome.
+
+Fig.6 shows that up to approx. 2600 lb, automatic cars have in average lower mpg than manual cars, and this trend reverses after approx. 2600 lb.
+
+#3/Model diagnostic
+
+A diagnostic plot of the model is included in annexes Fig.7. The residuals vs. fitted plot shows no systematic pattern. Let's check the Variance Inflation Factor (VIF) to see if the variance has been inflated by the addition of weight variable.
+```{r}
+sqrt(vif(fit21))
+```
+Here we see that am and am:wt have high VIF and are correlated, which is expected, and that wt has a low VIF. 
+
+#4/Uncertainty and confidence intervals
+The 95% confidence intervals of the coefficient are determined below.
+```{r}
+confint(fit21)
+```
+**********
+##ANNEXES
+```{r out.width="50%"}
+plot(data$am,data$mpg)
+```
+
+Fig.1: Boxplot mpg for manual (1) and automatic (0) cars
+
+```{r out.width="50%"}
+plot(fitted(fit1),residuals(fit1))
+```
+
+Fig. 2: Residual vs. Fitted model fit1
+
+Fig.3: coefficients of fit1
+```{r}
+summary(fit1)$coef
+```
+
+Fig.4: Anova coefficients
+```{r}
+anova(fit1, fit2, fit3,fit4, fit5, fit6,fit7,fit8,fit9,fit10)[1:6]
+```
+
+
+```{r out.width="50%"}
+g = ggplot(data, aes(x = wt, y = mpg, colour = am))
+g = g + geom_point(size = 6, colour = "black") + geom_point(size = 4)
+g = g + xlab("Weight (1000lb") + ylab("Mpg")
+g1 = g
+g1 = g1 + geom_abline(intercept = coef(fit2)[1], slope = coef(fit2)[3], size = 2,colour="orange")
+g1 = g1 + geom_abline(intercept = coef(fit2)[1] + coef(fit2)[2], 
+                          slope = coef(fit2)[3], size = 2,colour="blue")
+g1
+```
+
+Fig.5: Regression lines of fit2 mpg~am+wt
+
+```{r out.width="50%"}
+g2 = g
+g2 = g2 + geom_abline(intercept = coef(fit21)[1], slope = coef(fit21)[3], size = 2,colour="orange")
+g2 = g2 + geom_abline(intercept = coef(fit21)[1] + coef(fit21)[2], 
+                          slope = coef(fit21)[3] + coef(fit21)[4], size = 2,colour="blue")
+g2
+```
+Fig.6: Regression lines model fit21 mpg~am*wt includng interaction terms.
+
+```{r out.width="50%"}
+plot(fitted(fit21),residuals(fit21))
+```
+Fig.7: diagnostic plot of fit21 mpg~am*wt

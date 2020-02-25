@@ -1,0 +1,198 @@
+##Reproducible Research Course Project: Costs and Impact on Population Health of Climatic Events accross USA
+
+Author: E. Mineo
+Date: 4 September 2018
+
+Data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) from 1950 to 2011 is used to determine the number of climatic events in the period 1950-2011, the average number of injuries and fatalities as well as the average costs of property and crop damages caused by climatic events grouped in 30 categories. The data analysis shows that the three most frequent events are tornado (8,000), thunderstorm (4,000) and lightning (3,000). The type of event that causes the highest number of injuries and fatalities on average is tsunami (65,15) although this is one of the rarest event, and the type of event that causes the most costly damages for  propriety and crops are hurricanes ($500,000,000;$50,000000).
+
+
+#Data Processing
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning=FALSE)
+```
+
+```{r}
+data <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(data, "./data/StormData.bz2")
+df <- read.csv("./data/StormData.bz2")
+```
+
+```{r}
+library(lubridate)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+```
+
+A new dataframe is created with only the relevant variables
+```{r}
+df2 <- df[,c(8,23:28)]
+str(df2)
+```
+
+
+Here we check whether there are NA values in the variables we are interested in.
+```{r}
+sum(is.na(df2$FATALITIES))
+```
+```{r}
+sum(is.na(df2$INJURIES))
+```
+```{r}
+sum(is.na(df2$PROPDMG))
+```
+```{r}
+sum(is.na(df2$CROPDMG))
+```
+
+Here we check how many event types the dataset contains.
+```{r}
+length(unique(df2$EVTYPE))
+```
+
+There are 985 event types in this dataset, whereas the Storm Data Documentation lists 48 distinct event types. The colum EVTYPE needs to be cleaned up to obtain 48 event categories, as listed in the documentation. The event types are grouped into categories based on key words
+```{r}
+df2$EVGRP <- "" #create new column for group names
+
+df2$EVTYPE <- tolower(df2$EVTYPE)
+
+df2[!grepl("coastal|flash",df2$EVTYPE)&grepl("flood|fld",df2$EVTYPE),8] <- "flood"
+df2[grepl("flash",df2$EVTYPE),8] <- "flash flood"
+df2[grepl("coastal",df2$EVTYPE),8] <- " coastal flood"
+df2[grepl("storm surge|tide|rising water|high water",df2$EVTYPE),8] <- "storm surge/tide"
+df2[grepl("avalan",df2$EVTYPE),8] <- "avalanche"
+df2[grepl("blizzard",df2$EVTYPE),8]<- "blizzard"
+df2[grepl("cold|low temperature",df2$EVTYPE)&!grepl("extreme cold",df2$EVTYPE),8] <- "cold/wind chill"
+df2[grepl("extreme cold|hypothermia",df2$EVTYPE),8] <- "extreme cold"
+df2[grepl("fog",df2$EVTYPE),8] <- "dense fog"
+df2[grepl("drought",df2$EVTYPE),8] <- "drought"
+df2[grepl("devil",df2$EVTYPE),8] <- "dust devil"
+df2[grepl("dust storm",df2$EVTYPE),8] <- "dust storm"
+
+heat_str<- unique(df2[grepl("heat",df2$EVTYPE),1])
+heat_str2 <- heat_str[2:9]
+for (i in heat_str2) {df2[grepl(i,df2$EVTYPE),8] <- "excessive heat"}
+
+df2[grepl("^heat$",df2$EVTYPE),8] <- "heat"
+df2[grepl("frost|freeze",df2$EVTYPE),8] <- "frost/freeze"
+df2[grepl("funnel",df2$EVTYPE),8] <- "funnel cloud"
+df2[grepl("freezing",df2$EVTYPE),8] <- "freezing fog"
+df2[grepl("^hail$",df2$EVTYPE),8] <- "hail"
+df2[grepl("^small hail$",df2$EVTYPE),8] <- "hail"
+df2[grepl("thunderstorm|tstm",df2$EVTYPE) & !grepl("^marine thunderstorm wind$",df2$EVTYPE),8] <- "thunderstorm"
+df2[grepl("^marine thunderstorm wind$|^marine tstm wind$",df2$EVTYPE),8] <- "marine thunderstorm wind"
+df2[grepl("rain",df2$EVTYPE),8] <- "heavy rain"
+df2[grepl("snow",df2$EVTYPE),8] <- "heavy snow"
+df2[grepl("surf|high waves|high swells|rough seas|high seas|heavy seas|rogue wave",df2$EVTYPE),8] <- "high surf"
+df2[grepl("high wind",df2$EVTYPE)&!grepl("snow",df2$EVTYPE),8] <- "high wind"
+df2[grepl("wind",df2$EVTYPE)&!grepl("high wind|tstm|thunderstorm|cold|rain|surf",df2$EVTYPE),8] <- "strong wind"
+df2[grepl("hurricane|typhoon",df2$EVTYPE),8] <- "hurricane (typhoon)"
+df2[grepl("ice|icy",df2$EVTYPE)&!grepl("snow|flash flood",df2$EVTYPE),8] <- "ice storm"
+df2[grepl("lightning",df2$EVTYPE),8] <- "lightning"
+df2[grepl("marine",df2$EVTYPE)&!grepl("wind",df2$EVTYPE),8] <- "marine thunderstorm wind"
+df2[grepl("current",df2$EVTYPE),8] <- "rip current"
+df2[grepl("sleet",df2$EVTYPE),8] <- "sleet"
+df2[grepl("tornado",df2$EVTYPE),8] <- "tornado"
+df2[grepl("tropical",df2$EVTYPE),8] <- "tropical storm"
+df2[grepl("tsunami",df2$EVTYPE),8] <- "tsunami"
+df2[grepl("^waterspout$",df2$EVTYPE),8] <- "waterspout"
+df2[grepl("fire",df2$EVTYPE),8] <- "wildfire"
+df2[grepl("winter storm",df2$EVTYPE),8] <- "winter storm"
+df2[grepl("winter weather",df2$EVTYPE),8] <- "winter weather"
+df2[grepl("slides|slide",df2$EVTYPE),8] <- "landslides"
+
+df2[which(df2$EVGRP==""),8] <- "other"
+
+unique(df2$EVGRP)
+
+```
+The dataset now has 36 unique event types.
+
+
+The propriety and crop damages numbers need to be expressed in the same unit in order to be compared.
+```{r}
+df2$prop_dmg <-"" #create new column for the propriety damages in USD
+df2$crop_dmg <-"" #create new column for the crop damages in USD
+
+#convert all numbers in the same unit
+df2[df2$PROPDMGEXP=="",9] <- df2[df2$PROPDMGEXP=="",4]
+df2[df2$PROPDMGEXP=="0",9] <- df2[df2$PROPDMGEXP=="0",4]
+df2[df2$PROPDMGEXP=="K",9] <- df2[df2$PROPDMGEXP=="K",4]*1000
+df2[df2$PROPDMGEXP=="M",9] <- df2[df2$PROPDMGEXP=="M",4]*1000000
+df2[df2$PROPDMGEXP=="B",9] <- df2[df2$PROPDMGEXP=="B",4]*1000000000
+
+df2[df2$CROPDMGEXP=="",10] <- df2[df2$CROPDMGEXP=="",6]
+df2[df2$CROPDMGEXP=="0",10] <- df2[df2$CROPDMGEXP=="0",6]
+df2[df2$CROPDMGEXP=="K",10] <- df2[df2$CROPDMGEXP=="K",6]*1000
+df2[df2$CROPDMGEXP=="M",10] <- df2[df2$CROPDMGEXP=="M",6]*1000000
+df2[df2$CROPDMGEXP=="B",10] <- df2[df2$CROPDMGEXP=="B",6]*1000000000
+
+```
+
+
+Now that the dataset is cleaned up, we can calculate averages to determine consequences on health and economy.
+
+#Data Analysis and Results
+1/Overview count of events from 1950 to 2011
+```{r}
+qplot(reorder(EVGRP,EVGRP,function(x) length(x)*-1),
+   data=df2,geom="bar",xlab="Climatic Event",ylab="Count",main="Number of Climatic Event in the USA from 1950 to 2011 (source: NOAA)")+
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+Figure 1: Number of climatic events in the USA from 1950 to 2011.
+
+The three most frequent events in the period 1950-2011 accross the USA was thunderstorm and the least frequent event was tsunami.
+
+
+2/ Events Consequences on Population Health
+```{r}
+df2_group <- summarize(
+  group_by(df2,EVGRP),
+  fatalities=mean(FATALITIES),
+  injuries=mean(INJURIES))
+
+m.df2_group <- melt(df2_group, id.vars="EVGRP")
+
+ggplot(m.df2_group,aes(x=reorder(EVGRP,-value),y=value))+
+        geom_bar(stat="identity", aes(fill=variable))+
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+
+        xlab("Event Type")+ylab("Average nbr. persons")+
+        ggtitle("Effect of Climatic Event on Population Health in the United States 
+(source: NOAA - 1950 to 2011)")
+
+```
+
+
+Fgure 2: Effect of climatic event on population health in the United States.
+
+Interestingly, the event type that has the most impact on population health on average is tsunami, although this is one of the rarest event. Hurricane heatis the second cause of most injuries and heat is the second cause of fatalities.
+
+3/Events Consequences on US Enconomy
+```{r}
+df2$prop_dmg <- as.numeric(df2$prop_dmg)
+df2$crop_dmg <- as.numeric(df2$crop_dmg)
+
+df2_dmg_group <- summarize(
+  group_by(df2,EVGRP),
+  property=mean(prop_dmg),
+  crop=mean(crop_dmg))
+
+m.df2_dmg_grp <- melt(df2_dmg_group,id.vars="EVGRP")#transforms matrix data into dataframe
+
+m.df2_dmg_grp2 <- m.df2_dmg_grp[!m.df2_dmg_grp$value=="0",]
+
+m.df2_dmg_grp2 <- m.df2_dmg_grp2[complete.cases(m.df2_dmg_grp2),]
+
+ggplot(m.df2_dmg_grp2,aes(x=reorder(EVGRP,-value),y=value))+
+        geom_bar(stat="identity")+
+        facet_grid(rows=vars(variable), scales="free")+
+        theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+
+        xlab("Event Type")+ylab("Average Cost (USD)")+
+        ggtitle("Economic Consequences of Climatic Events in the United States
+(source: NOAA - 1950 to 2011)")
+```
+
+Figure 3: Economic consequences of climatic events in the USA
+
+Storms caused the most damages on property and drought caused the most damage on crops. The second most costly damages are caused by tropical storm on property and ice storm on crops.
